@@ -1,24 +1,25 @@
 #!/bin/bash
 
 # Max number of users (first argument or default to 20)
-MAX_USERS="${1:-20}" ##REPLACE
+MAX_USERS="${1:-20}"
 
-# Base domain (second argument or default)
-RAW_DOMAIN="${2:-apps.cluster-abc123.abc123.sandbox9999.opentlc.com}" ##REPLACE
+# Base domain (second argument or default, WITHOUT /bubble)
+RAW_DOMAIN="${2:-apps.cluster-p7sr9.p7sr9.sandbox2601.opentlc.com}"
 
-# Full domain with /bubble suffix
-BASE_DOMAIN="${RAW_DOMAIN}/bubble"
+# Bubble base path (used for first 3 steps)
+BUBBLE_DOMAIN="${RAW_DOMAIN}/bubble"
 
 # Step definitions: URL | match type | column label
 STEPS=(
-  "http://bgd-user{}-bgd.${BASE_DOMAIN}|blue|2.Basics"
-  "http://bgd-user{}-bgdk.${BASE_DOMAIN}|yellow|3.Kustomize"
-  "http://bgd-helm-user{}-bgdh.${BASE_DOMAIN}|merged|4.Helm"
+  "http://bgd-user{}-bgd.${BUBBLE_DOMAIN}|blue|2.Basics"
+  "http://bgd-user{}-bgdk.${BUBBLE_DOMAIN}|yellow|3.Kustomize"
+  "http://bgd-helm-user{}-bgdh.${BUBBLE_DOMAIN}|merged|4.Helm"
+  "http://todo-user{}-todo.${RAW_DOMAIN}/todo.html|sync|5.SyncWaves"
 )
 
 # Print table header
-printf "%-6s | %-10s | %-13s | %-7s\n" "User" "2.Basics" "3.Kustomize" "4.Helm"
-echo "----------------------------------------------------------"
+printf "%-6s | %-10s | %-13s | %-7s | %-11s\n" "User" "2.Basics" "3.Kustomize" "4.Helm" "5.SyncWaves"
+echo "--------------------------------------------------------------------------"
 
 # Function to check step
 check_step() {
@@ -26,7 +27,6 @@ check_step() {
   local match=$2
   local user=$3
 
-  # Replace {} with user number
   full_url=$(echo "$url" | sed "s/{}/$user/g")
   content=$(curl -s "$full_url")
 
@@ -48,10 +48,13 @@ check_step() {
         echo "❌"
       fi
       ;;
+    sync)
+      echo "$content" | grep -q "What needs to be done?" && echo "✅" || echo "❌"
+      ;;
   esac
 }
 
-# Loop through each user
+# Loop through users
 for user in $(seq 1 "$MAX_USERS"); do
   results=()
   for step in "${STEPS[@]}"; do
@@ -61,6 +64,5 @@ for user in $(seq 1 "$MAX_USERS"); do
     result=$(check_step "$url" "$match" "$user")
     results+=("$result")
   done
-  # Print the row
-  printf "%-6s | %-10s | %-13s | %-7s\n" "$user" "${results[@]}"
+  printf "%-6s | %-10s | %-13s | %-7s | %-11s\n" "$user" "${results[@]}"
 done
